@@ -1,0 +1,15 @@
+* text=auto
+
+# Force LF line endings for shell scripts on all platforms.
+# Without this, Windows Git rewrites \n to \r\n and Linux Docker
+# cannot execute the shebang line (reads it as "#!/bin/bash\r").
+*.sh text eol=lf
+
+*.blade.php diff=html
+*.css diff=css
+*.html diff=html
+*.md diff=markdown
+*.php diff=php
+
+/.github export-ignore
+CHANGELOG.md export-ignore
