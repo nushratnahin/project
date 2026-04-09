@@ -1,0 +1,78 @@
+services:
+  # ─── SQL Server ────────────────────────────────────────────────
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: library_db
+    environment:
+      SA_PASSWORD: "Laravel@123"
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+      - ./docker/mssql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Laravel@123' -Q 'SELECT 1' -No -C || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - library_net
+
+  # ─── Laravel Backend ───────────────────────────────────────────
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: library_server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_NAME: "Library Management"
+      APP_ENV: local
+      APP_KEY: ""
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:8000
+      FRONTEND_URL: http://localhost:5173
+      LOG_LEVEL: debug
+      DB_CONNECTION: sqlsrv
+      DB_HOST: db
+      DB_PORT: 1433
+      DB_DATABASE: library_management
+      DB_USERNAME: laravel_user
+      DB_PASSWORD: "Laravel@123"
+    ports:
+      - "8000:80"
+    volumes:
+      - ./server/storage:/var/www/html/storage
+    networks:
+      - library_net
+
+  # ─── React Frontend ────────────────────────────────────────────
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
+    container_name: library_client
+    depends_on:
+      - server
+    ports:
+      - "5173:80"
+    networks:
+      - library_net
+
+volumes:
+  mssql_data:
+
+networks:
+  library_net:
+    driver: bridge
