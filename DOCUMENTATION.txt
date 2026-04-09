@@ -1,0 +1,1506 @@
+================================================================================
+  LIBRARY MANAGEMENT SYSTEM — COMPLETE TECHNICAL DOCUMENTATION
+================================================================================
+  Version : 1.0
+  Stack   : React 18 + TypeScript | Laravel 8 | Microsoft SQL Server 2022
+  Runtime : Docker Compose (3 containers)
+================================================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TABLE OF CONTENTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1.  Project Overview
+  2.  Technology Stack
+  3.  System Architecture
+  4.  Prerequisites
+  5.  Local Setup & Running the Project
+  6.  Default Credentials
+  7.  Project Directory Structure
+  8.  Docker Configuration
+       8.1  docker-compose.yml
+       8.2  server/Dockerfile
+       8.3  server/docker-entrypoint.sh
+       8.4  client/Dockerfile
+       8.5  client/nginx.conf
+  9.  Backend — Laravel API
+       9.1  Environment Configuration (.env)
+       9.2  Database Configuration (config/database.php)
+       9.3  CORS Configuration (config/cors.php)
+       9.4  Database Migrations
+       9.5  Models
+            9.5.1  User
+            9.5.2  Book
+            9.5.3  Category
+            9.5.4  Record
+       9.6  Controllers
+            9.6.1  AuthController
+            9.6.2  BookController
+            9.6.3  RecordController
+            9.6.4  AdminController
+            9.6.5  ProfileController
+       9.7  Middleware
+            9.7.1  HandleCors
+            9.7.2  IsAdmin
+       9.8  API Routes (routes/api.php)
+       9.9  Database Seeder
+  10. Frontend — React Application
+       10.1  Entry Points (main.tsx, index.html)
+       10.2  App.tsx — Root Component & Routing
+       10.3  API Client (api.ts)
+       10.4  Auth Context (context/AuthContext.tsx)
+       10.5  Components
+             10.5.1  Navbar
+             10.5.2  AddBookModal
+             10.5.3  EditBookModal
+       10.6  Pages
+             10.6.1  Home
+             10.6.2  Login
+             10.6.3  Register
+             10.6.4  BookDetail
+             10.6.5  MyBooks
+             10.6.6  Profile
+             10.6.7  AdminPanel
+       10.7  Styling (index.css)
+  11. Feature Walkthroughs
+       11.1  Authentication Flow
+       11.2  Browsing & Searching Books
+       11.3  Borrowing a Book
+       11.4  Returning a Book
+       11.5  Admin — Adding a Book
+       11.6  Admin — Editing a Book
+       11.7  Admin — Deleting a Book
+       11.8  Admin — Managing Users
+       11.9  Profile Management
+       11.10 Chatbot (Dialogflow)
+  12. API Reference
+  13. Database Schema
+  14. Common Errors & Troubleshooting
+  15. Resetting the Project
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. PROJECT OVERVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The Library Management System is a full-stack web application that lets a
+library manage its book catalogue and track members borrowing books. It has two
+user roles:
+
+  MEMBER  — Can browse books, borrow up to 3 books at a time, return them, and
+             manage their own profile.
+
+  ADMIN   — Has all member abilities plus full CRUD control over books, and the
+             ability to suspend or activate member accounts.
+
+A Google Dialogflow chatbot is also integrated, accessible as a floating widget
+on every page.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2. TECHNOLOGY STACK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+FRONTEND
+  - React 18          — UI library using functional components and hooks
+  - TypeScript        — Typed superset of JavaScript; catches errors at compile time
+  - Vite              — Fast build tool and dev server
+  - React Router v6   — Client-side page routing (SPA navigation)
+  - Axios             — HTTP client for API calls
+  - React Toastify    — Toast notification popups
+  - React Icons (FI)  — Feather icon set
+  - Nginx             — Serves the built React files in production
+
+BACKEND
+  - Laravel 8         — PHP MVC framework providing the REST API
+  - PHP 8.3           — Runtime language
+  - Laravel Sanctum   — Token-based API authentication (Bearer tokens)
+  - Apache            — Web server that runs the Laravel application
+  - Fruitcake CORS    — Cross-Origin Resource Sharing support
+
+DATABASE
+  - Microsoft SQL Server 2022 — Relational database
+  - ODBC Driver 18    — PHP driver to connect to MSSQL
+
+INFRASTRUCTURE
+  - Docker            — Containerises each service
+  - Docker Compose    — Orchestrates all containers together
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+3. SYSTEM ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ┌─────────────────────────────────────────────────────────┐
+  │                      USER'S BROWSER                     │
+  │                                                         │
+  │   React SPA (localhost:5173)                            │
+  │   Axios HTTP requests ──────────────────────────────►  │
+  │                       ◄──────────────────────── JSON   │
+  └──────────────────────────┬──────────────────────────────┘
+                             │
+              Docker Network: library_net
+                             │
+         ┌───────────────────┼─────────────────────┐
+         │                   │                      │
+         ▼                   ▼                      ▼
+  ┌─────────────┐    ┌───────────────┐    ┌──────────────────┐
+  │   CLIENT    │    │    SERVER     │    │       DB         │
+  │  container  │    │   container   │    │    container     │
+  │             │    │               │    │                  │
+  │ Nginx:80    │    │  Apache:80    │    │  MSSQL:1433      │
+  │ (→ :5173)   │    │  (→ :8000)    │    │  (→ :1433)       │
+  │             │    │               │    │                  │
+  │ Serves the  │    │  Laravel PHP  │    │  Stores all      │
+  │ built React │    │  REST API     │    │  data            │
+  │ files       │    │               │    │                  │
+  └─────────────┘    └───────┬───────┘    └──────────────────┘
+                             │                     ▲
+                             └─────────────────────┘
+                              PDO_SQLSRV connection
+
+  COMMUNICATION PATTERN:
+    1. Browser loads the React app from the client container (port 5173).
+    2. React makes Axios HTTP requests to the server container (port 8000/api/*).
+    3. Laravel processes the request, queries SQL Server, and returns JSON.
+    4. React updates the UI with the response data.
+
+  AUTHENTICATION:
+    - On login, Laravel creates a Sanctum personal access token and returns it.
+    - React stores it in localStorage and sends it as:
+        Authorization: Bearer <token>
+      on every subsequent request.
+    - Laravel validates the token on protected routes using the auth:sanctum guard.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+4. PREREQUISITES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You only need two tools installed on your machine:
+
+  1. Docker Desktop (includes Docker Compose)
+       Download: https://www.docker.com/products/docker-desktop/
+       Minimum version: Docker 24+, Compose v2
+
+  2. Git (to clone the project)
+       Download: https://git-scm.com/
+
+  Nothing else is needed. PHP, Node.js, SQL Server, and all other dependencies
+  run inside Docker containers — you do not install them on your machine.
+
+  SYSTEM REQUIREMENTS:
+    - At least 6 GB of free RAM (SQL Server alone requires 2 GB)
+    - At least 8 GB of free disk space
+    - 64-bit operating system (Windows 10+, macOS 12+, Ubuntu 20.04+)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+5. LOCAL SETUP & RUNNING THE PROJECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1 — Clone the repository
+  Open a terminal and run:
+
+    git clone <your-repository-url>
+    cd library-management
+
+STEP 2 — Start all containers
+  Run this single command from the project root:
+
+    docker compose up --build
+
+  What happens automatically:
+    a) Docker builds the server image (installs PHP, ODBC Driver, Composer deps)
+    b) Docker builds the client image (runs npm install, npm run build)
+    c) SQL Server starts and becomes healthy (takes ~30 seconds)
+    d) The server entrypoint waits for SQL Server, then:
+         - Creates the database and user if they don't exist
+         - Runs all migrations (creates tables)
+         - Seeds the database (creates admin, member, 5 categories, 10 books)
+         - Creates the storage symlink
+         - Starts Apache
+
+  FIRST-TIME BUILD NOTE:
+    The first build takes 5–15 minutes because it downloads base images and
+    compiles PHP extensions. Subsequent starts (without --build) take ~30 seconds.
+
+STEP 3 — Open the application
+  Once you see this line in the logs:
+    library_server | Apache/2.4.x configured -- resuming normal operations
+
+  Open your browser and visit:
+    http://localhost:5173   ← React frontend (use this one)
+    http://localhost:8000   ← Laravel API (for direct API testing)
+
+STEP 4 — Stopping the project
+  Press Ctrl+C in the terminal, then run:
+    docker compose down
+
+  To also delete all database data (full reset):
+    docker compose down -v
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+6. DEFAULT CREDENTIALS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ADMIN ACCOUNT
+    Email    : admin@library.com
+    Password : Admin@1234
+    Access   : Full admin panel, book management, user management
+
+  MEMBER ACCOUNT
+    Email    : member@library.com
+    Password : Member@1234
+    Access   : Browse books, borrow/return, manage own profile
+
+  DATABASE (SQL Server)
+    Host     : localhost:1433
+    Database : library_management
+    Username : laravel_user
+    Password : Laravel@123
+    SA Pass  : Laravel@123
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+7. PROJECT DIRECTORY STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+library-management/
+│
+├── docker-compose.yml              ← Defines all 3 containers & their config
+├── docker/
+│   └── mssql/
+│       └── init.sql                ← SQL run on DB container first start
+│
+├── client/                         ← React frontend
+│   ├── Dockerfile                  ← Build instructions for client container
+│   ├── nginx.conf                  ← Nginx config for serving the React app
+│   ├── index.html                  ← HTML shell; loads Dialogflow & React
+│   ├── package.json                ← Node dependencies list
+│   ├── vite.config.ts              ← Vite build configuration
+│   └── src/
+│       ├── main.tsx                ← React app entry point
+│       ├── App.tsx                 ← Root component, routes, chatbot mount
+│       ├── api.ts                  ← Axios instance & interceptors
+│       ├── index.css               ← All global styles & responsive CSS
+│       ├── context/
+│       │   └── AuthContext.tsx     ← Global auth state (user, token, login, logout)
+│       ├── components/
+│       │   ├── Navbar.tsx          ← Top navigation + hamburger menu
+│       │   ├── AddBookModal.tsx    ← Modal form for creating a book
+│       │   └── EditBookModal.tsx   ← Modal form for editing a book
+│       └── pages/
+│           ├── Home.tsx            ← Book catalogue with search & filters
+│           ├── Login.tsx           ← Login form
+│           ├── Register.tsx        ← Registration form
+│           ├── BookDetail.tsx      ← Single book view with borrow button
+│           ├── MyBooks.tsx         ← Member's active borrows & history
+│           ├── Profile.tsx         ← Edit profile, change password, delete account
+│           └── AdminPanel.tsx      ← Admin: manage books & users
+│
+└── server/                         ← Laravel backend
+    ├── Dockerfile                  ← Build instructions for server container
+    ├── docker-entrypoint.sh        ← Startup script (wait, migrate, seed, serve)
+    ├── .env                        ← Laravel environment config (not in git)
+    ├── composer.json               ← PHP dependency list
+    ├── routes/
+    │   ├── api.php                 ← All API route definitions
+    │   └── web.php                 ← Web routes (just an info response)
+    ├── app/
+    │   ├── Http/
+    │   │   ├── Kernel.php          ← Middleware stack registration
+    │   │   ├── Controllers/
+    │   │   │   ├── AuthController.php
+    │   │   │   ├── BookController.php
+    │   │   │   ├── RecordController.php
+    │   │   │   ├── AdminController.php
+    │   │   │   └── ProfileController.php
+    │   │   └── Middleware/
+    │   │       ├── HandleCors.php  ← Custom CORS headers middleware
+    │   │       └── IsAdmin.php     ← Blocks non-admin access
+    │   └── Models/
+    │       ├── User.php
+    │       ├── Book.php
+    │       ├── Category.php
+    │       └── Record.php
+    ├── config/
+    │   ├── database.php            ← DB connection settings
+    │   ├── cors.php                ← CORS allowed origins
+    │   └── sanctum.php             ← Token auth settings
+    └── database/
+        ├── migrations/             ← Table creation scripts
+        └── seeders/
+            └── DatabaseSeeder.php  ← Seeds default data
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+8. DOCKER CONFIGURATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+8.1  docker-compose.yml
+─────────────────────────
+Defines three services that communicate over a shared bridge network called
+"library_net". No service is exposed to the public internet — only the three
+port mappings below are accessible from your local machine.
+
+  SERVICE: db (SQL Server)
+    Image   : mcr.microsoft.com/mssql/server:2022-latest
+    Port    : 1433 → 1433
+    Env vars: SA_PASSWORD, ACCEPT_EULA, MSSQL_PID (Developer edition = free)
+    Volume  : mssql_data (named volume — data survives container restarts)
+    Healthcheck: Runs "sqlcmd SELECT 1" every 15s. The server container will
+                 not start until this check passes (ensures DB is ready).
+
+  SERVICE: server (Laravel)
+    Build   : ./server/Dockerfile
+    Port    : 8000 → 80 (your port 8000 maps to Apache's port 80 inside)
+    Env vars: All Laravel .env values passed in here (APP_KEY, DB_*, etc.)
+    Volume  : ./server/storage mounted to keep uploaded files across rebuilds
+    Depends on: db (with healthcheck condition — waits for DB to be ready)
+
+  SERVICE: client (React)
+    Build   : ./client/Dockerfile
+    Port    : 5173 → 80 (your port 5173 maps to Nginx's port 80 inside)
+    Build arg: VITE_API_URL=http://localhost:8000 (bakes the API URL into
+               the built JavaScript at build time)
+    Depends on: server
+
+  VOLUME:
+    mssql_data — Named Docker volume. SQL Server stores all database files here.
+    It persists when you run "docker compose down" but is deleted with "-v".
+
+  NETWORK:
+    library_net — Bridge network. Containers find each other by service name
+    (e.g. the server connects to host "db" on port 1433).
+
+8.2  server/Dockerfile
+────────────────────────
+Multi-step build for the Laravel container:
+
+  Step 1: Start FROM php:8.3-apache (official PHP image with Apache pre-installed)
+  Step 2: Install system packages (curl, git, zip, image libraries, etc.)
+  Step 3: Add Microsoft's apt repository and install ODBC Driver 18 + sqlcmd
+  Step 4: Install PHP extensions: pdo, mbstring, gd, zip, sqlsrv, pdo_sqlsrv
+  Step 5: Enable Apache mod_rewrite (needed for Laravel's .htaccess URL routing)
+          and mod_headers (needed to set CORS headers)
+  Step 6: Write a hardcoded VirtualHost config to 000-default.conf:
+            - DocumentRoot set to /var/www/html/public (Laravel's public folder)
+            - CORS headers added at Apache level (always present, even on errors)
+            - AllowOverride All so .htaccess rules are honoured
+            - DirectoryIndex prefers index.php over index.html
+  Step 7: Copy Composer binary from the official composer image
+  Step 8: Copy all server source files into /var/www/html
+  Step 9: Delete any leftover React static files that might interfere
+  Step 10: Run "composer install" to install PHP dependencies
+  Step 11: Set file ownership to www-data (the Apache user)
+
+  IMPORTANT: The CORS headers are set at the Apache layer here. This means
+  they are sent on every response — even if PHP crashes — preventing
+  browser CORS errors from blocking error messages.
+
+8.3  server/docker-entrypoint.sh
+──────────────────────────────────
+Shell script that runs every time the server container starts (before Apache).
+
+  1. Fixes storage permissions — the Docker volume mount overwrites the chown
+     done during build, so this re-applies www-data ownership at runtime.
+  2. Writes the .env file from environment variables passed by docker-compose.yml
+  3. Generates APP_KEY if blank (Laravel needs a 32-char encryption key)
+  4. Waits up to 5 minutes for SQL Server to accept connections (60 attempts × 5s)
+  5. Creates the database "library_management" if it doesn't exist yet
+  6. Creates the login "laravel_user" if it doesn't exist yet
+  7. Grants db_owner permissions to laravel_user on library_management
+  8. Runs "php artisan migrate --force" (creates all tables)
+  9. Runs "php artisan db:seed --force" (inserts default data)
+  10. Creates the storage symlink (public/storage → storage/app/public)
+  11. Clears config and application cache
+  12. Starts Apache in the foreground (exec apache2-foreground)
+
+  NOTE: Steps 5-7 use sqlcmd (the SQL Server command-line tool) with the
+  -C flag (trust self-signed certificate) because SQL Server in Docker uses
+  a self-signed TLS certificate that ODBC Driver 18 rejects by default.
+
+8.4  client/Dockerfile
+────────────────────────
+Two-stage build to keep the final image small:
+
+  Stage 1 (builder):
+    - Start from node:20-alpine
+    - Run "npm install" to install all JavaScript dependencies
+    - Receive VITE_API_URL as a build argument and set it as an ENV variable
+      (Vite embeds this into the compiled JavaScript during the build)
+    - Run "npm run build" — produces optimised static files in /app/dist
+
+  Stage 2 (production):
+    - Start from nginx:alpine (very lightweight)
+    - Copy only the /app/dist files from Stage 1 (discards Node, source code)
+    - Copy nginx.conf
+    - Expose port 80
+
+  WHY TWO STAGES? The final image only contains Nginx + static files (~30 MB)
+  rather than Node.js + all source code + dev dependencies (~600 MB).
+
+8.5  client/nginx.conf
+────────────────────────
+Nginx configuration for serving the React SPA:
+
+  listen 80         — Listens on port 80 inside the container
+  root              — Points to /usr/share/nginx/html (where dist files are)
+  location /        — try_files: tries the exact file, then a directory,
+                      then falls back to index.html. This is ESSENTIAL for
+                      React Router — without it, refreshing /books/5 would
+                      return a 404 because Nginx would look for a real file
+                      at that path. Instead it serves index.html and React
+                      Router handles the routing in the browser.
+  Static assets     — .js/.css/.png etc. are cached for 1 year with
+                      Cache-Control: immutable (Vite adds content hashes to
+                      filenames so old files are never served stale).
+  gzip              — Compresses responses to reduce download size.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+9. BACKEND — LARAVEL API
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+9.1  Environment Configuration (server/.env)
+──────────────────────────────────────────────
+The .env file is generated by docker-entrypoint.sh from docker-compose.yml env
+vars. Key variables:
+
+  APP_KEY               — 32-character random key used for encryption.
+                          Auto-generated on first start if blank.
+  DB_CONNECTION=sqlsrv  — Tells Laravel to use SQL Server driver
+  DB_HOST=db            — "db" resolves to the db container inside Docker network
+  DB_PORT=1433          — Standard SQL Server port
+  DB_DATABASE           — Name of the database
+  DB_USERNAME/PASSWORD  — Credentials Laravel uses to query the DB
+  DB_ENCRYPT=yes        — Encrypts data in transit
+  DB_TRUST_SERVER_CERTIFICATE=true — Trusts SQL Server's self-signed cert
+  FRONTEND_URL          — Used by the CORS config to allow requests from React
+  FILESYSTEM_DISK=public — Uploaded images stored in storage/app/public/
+
+9.2  Database Configuration (config/database.php)
+────────────────────────────────────────────────────
+The sqlsrv connection block adds two critical options beyond the defaults:
+  'encrypt' => 'yes'                — Matches DB_ENCRYPT in .env
+  'trust_server_certificate' => 'true' — Allows connection despite self-signed cert
+Without these, ODBC Driver 18 refuses to connect to SQL Server in Docker.
+
+9.3  CORS Configuration (config/cors.php)
+───────────────────────────────────────────
+  paths: ['*']            — Apply CORS to all routes
+  allowed_origins         — Only the FRONTEND_URL origin is allowed
+  allowed_methods: ['*']  — GET, POST, PUT, DELETE, OPTIONS, etc.
+  allowed_headers: ['*']  — Any header (including Authorization)
+  supports_credentials: true — Allows cookies/auth headers cross-origin
+
+  NOTE: CORS is also enforced at the Apache layer in the Dockerfile's
+  VirtualHost config. This double-layer approach ensures headers are present
+  even when PHP throws an uncaught exception before reaching middleware.
+
+9.4  Database Migrations
+──────────────────────────
+Migrations are PHP files that define the database schema. Laravel runs them
+in filename order. Each migration has an "up" method (create) and a "down"
+method (drop/rollback).
+
+  FILE: 2019_12_14_000001_create_personal_access_tokens_table.php
+    Creates the "personal_access_tokens" table used by Laravel Sanctum to
+    store API tokens. Auto-included from the Sanctum package.
+    Columns: id, tokenable_type, tokenable_id, name, token (hashed), abilities,
+             last_used_at, expires_at, timestamps
+
+  FILE: 2024_01_01_000001_create_users_table.php
+    Creates the "users" table.
+    Columns:
+      id              — Auto-incrementing primary key
+      name            — Full name (string)
+      email           — Unique email address
+      password        — Bcrypt-hashed password
+      type            — 'admin' or 'member' (string(20), default 'member')
+                        Note: string used instead of enum due to MSSQL limitations
+      status          — 'active' or 'suspended' (string(20), default 'active')
+      email_verified_at — Nullable timestamp (not actively used)
+      remember_token  — For "remember me" sessions (not actively used)
+      deleted_at      — Soft delete timestamp (NULL = not deleted)
+      created_at      — Auto-set when record is created
+      updated_at      — Auto-updated on every save
+
+  FILE: 2024_01_01_000003_create_categories_table.php
+    Creates the "categories" table.
+    Columns: id, name (unique string), timestamps
+    Pre-seeded with: Action, Romance, Thriller, Horror, Documentary
+
+  FILE: 2024_01_01_000004_create_books_table.php
+    Creates the "books" table.
+    Columns:
+      id              — Primary key
+      title           — Book title
+      author          — Author name
+      description     — Up to 2000 characters (string, not text, for MSSQL compat)
+      isbn_no         — ISBN-10 or ISBN-13, must be unique
+      image_path      — Relative path in storage (nullable)
+      category_id     — Foreign key → categories.id (ON DELETE NO ACTION)
+      timestamps
+    Note: ON DELETE NO ACTION (not RESTRICT) because MSSQL doesn't support RESTRICT.
+
+  FILE: 2024_01_01_000005_create_records_table.php
+    Creates the "records" (borrowing records) table.
+    Columns:
+      id              — Primary key
+      user_id         — Foreign key → users.id (ON DELETE CASCADE)
+      book_id         — Foreign key → books.id (ON DELETE CASCADE)
+      borrowed_at     — When the book was borrowed (not nullable)
+      due_date        — 14 days after borrowed_at (not nullable)
+      returned_at     — When returned; NULL means still borrowed
+      timestamps
+    ON DELETE CASCADE: if a user or book is deleted, their records go too.
+
+9.5  Models
+─────────────────
+Models are PHP classes that represent a database table. They use Eloquent ORM
+which turns database rows into PHP objects and lets you write queries in PHP.
+
+  9.5.1  User (app/Models/User.php)
+    Traits used:
+      HasApiTokens  — From Sanctum; adds createToken(), tokens() methods
+      HasFactory    — For automated testing factories
+      Notifiable    — For sending email/SMS notifications
+      SoftDeletes   — Adds deleted_at; "deleted" users stay in DB but are hidden
+
+    $fillable     — Fields that can be mass-assigned (prevents mass assignment attacks)
+    $hidden       — Fields excluded from JSON responses (password, remember_token)
+    $casts        — Automatic type conversion (email_verified_at, deleted_at → Carbon)
+
+    Methods:
+      records()       — One-to-many: a user has many borrow records
+      isAdmin()       — Returns true if type === 'admin'
+      isMember()      — Returns true if type === 'member'
+      activeRecords() — Returns only records where returned_at is NULL (current borrows)
+
+  9.5.2  Book (app/Models/Book.php)
+    $fillable     — title, author, description, isbn_no, image_path, category_id
+
+    Methods:
+      category()    — BelongsTo: a book belongs to one category
+      records()     — HasMany: a book has many borrow records over time
+      activeRecord()— HasOne: the single current (unreturned) borrow record, if any
+      isAvailable() — Returns true if no active (unreturned) record exists for this book
+
+  9.5.3  Category (app/Models/Category.php)
+    $fillable     — name
+
+    Methods:
+      books()       — HasMany: a category has many books
+
+  9.5.4  Record (app/Models/Record.php)
+    $fillable     — user_id, book_id, borrowed_at, due_date, returned_at
+    $casts        — All timestamp fields cast to Carbon datetime objects
+
+    Methods:
+      user()        — BelongsTo: the user who borrowed
+      book()        — BelongsTo: the book that was borrowed
+      isOverdue()   — Returns true if returned_at is NULL AND due_date is in the past
+
+9.6  Controllers
+──────────────────
+Controllers contain the business logic. Each public method handles one API endpoint.
+They receive an HTTP Request, do work, and return a JSON Response.
+
+  9.6.1  AuthController
+    register(Request $request)
+      Validates: name (required), email (required, unique), password (min 8, confirmed)
+      Creates a new User with type='member', status='active'
+      Returns: 201 with the created user object
+
+    login(Request $request)
+      Validates: email, password
+      Finds user by email (including soft-deleted users using withTrashed())
+      Checks: password hash matches, account not deleted, account not suspended
+      Creates a Sanctum token: $user->createToken('auth_token')->plainTextToken
+      Returns: 200 with { user: {...}, token: "1|abc123..." }
+
+    logout(Request $request)
+      Deletes only the current token (not all tokens for the user)
+      Returns: 200 with success message
+
+    me(Request $request)
+      Returns the currently authenticated user object
+      Used on app mount to verify stored token is still valid
+
+  9.6.2  BookController
+    index(Request $request)
+      Builds a query with eager loading of category and activeRecord relationships
+      Supports optional filters:
+        ?category_id=3   — filter by category
+        ?search=gatsby   — LIKE search on title and author
+        ?page=2          — pagination (10 per page)
+      Transforms each book to add is_available and image_url fields
+      Returns: paginated JSON with metadata (current_page, last_page, total)
+
+    show($id)
+      Loads a single book with its category and activeRecord (including the
+      borrowing user's name)
+      Returns: single book object
+
+    store(Request $request)
+      Admin only (enforced by route middleware)
+      Validates all fields; isbn_no regex uses array syntax to avoid pipe conflicts
+        ['required', 'string', 'unique:books,isbn_no', 'regex:/^(?:\d{10}|\d{13})$/']
+      If image uploaded: stores file in storage/app/public/books/ using Laravel's
+        Storage facade, returns the relative path
+      Creates and returns the new book
+
+    update(Request $request, $id)
+      Admin only
+      Same validation as store but fields are 'sometimes' (only validate if present)
+      If new image uploaded: deletes old image, stores new one
+      Updates only the provided fields using fill() + save()
+      Returns the updated book
+
+    destroy($id)
+      Admin only
+      Refuses if book is currently borrowed (isAvailable() === false)
+      Deletes associated image from storage
+      Hard-deletes the book record
+      Returns success message
+
+    categories()
+      Returns all categories ordered by name
+      Public endpoint (no auth required)
+
+  9.6.3  RecordController
+    myBooks(Request $request)
+      Fetches two lists for the authenticated user:
+        current — records where returned_at IS NULL
+        history — records where returned_at IS NOT NULL
+      Each record is enriched with is_overdue and image_url fields
+      Returns: { current: [...], history: [...] }
+
+    borrow(Request $request, $bookId)
+      Checks: user has fewer than 3 active borrows (hard limit)
+      Checks: book isAvailable() is true
+      Creates a Record with:
+        borrowed_at = Carbon::now()
+        due_date    = now + 14 days
+        returned_at = null
+      Returns: 201 with the new record
+
+    return(Request $request, $recordId)
+      Finds the record ensuring it belongs to the current user AND is not returned
+      (Prevents other users from returning someone else's books)
+      Sets returned_at = Carbon::now() and saves
+      Returns: 200 with updated record
+
+  9.6.4  AdminController
+    stats()
+      Aggregates four counts from the DB in one call:
+        total_books   — COUNT of all books
+        total_users   — COUNT of members (type='member')
+        borrowed_books — COUNT of records with returned_at IS NULL
+        overdue_books  — COUNT of unreturned records where due_date < NOW()
+      Returns: { total_books, total_users, borrowed_books, overdue_books }
+
+    users(Request $request)
+      Fetches all member accounts including soft-deleted (withTrashed())
+      Supports ?search= filter on name and email
+      Paginated at 15 per page
+      Returns: paginated user list
+
+    updateUserStatus(Request $request, $id)
+      Validates: status must be 'active' or 'suspended'
+      Refuses to modify admin accounts (prevents self-lockout)
+      Updates user.status and saves
+      Returns: updated user
+
+  9.6.5  ProfileController
+    show(Request $request)        — Returns the authenticated user
+    update(Request $request)      — Updates name and/or email (unique check
+                                    ignores the current user's own email)
+    changePassword(Request $request)
+      Verifies current password using Hash::check
+      Validates new password: min 8 chars, must match confirmation
+      Hashes and saves new password
+    destroy(Request $request)
+      Deletes all Sanctum tokens for the user (logs out all devices)
+      Soft-deletes the user record (sets deleted_at, does not remove the row)
+
+9.7  Middleware
+────────────────
+Middleware are classes that intercept HTTP requests before or after they reach
+a controller. They form a "pipeline" every request flows through.
+
+  9.7.1  HandleCors (app/Http/Middleware/HandleCors.php)
+    Registered as a GLOBAL middleware in Kernel.php — runs on every request.
+    For OPTIONS preflight requests: returns 204 immediately with CORS headers.
+    For all other requests: calls the next middleware/controller and then
+    attaches CORS headers to the response before sending it back to the browser.
+    Uses FRONTEND_URL env var as the allowed origin value.
+
+    WHY CUSTOM? The fruitcake/laravel-cors package's config-based origin matching
+    silently failed in this Docker setup. A custom middleware is explicit and
+    has zero failure modes.
+
+  9.7.2  IsAdmin (app/Http/Middleware/IsAdmin.php)
+    Registered as a named route middleware 'is.admin' in Kernel.php.
+    Applied to the admin-only route group in api.php.
+    Checks: $request->user()->type === 'admin'
+    If not admin: returns 403 Forbidden JSON response.
+    If admin: calls $next($request) to proceed.
+
+9.8  API Routes (routes/api.php)
+──────────────────────────────────
+All routes are prefixed with /api by Laravel convention.
+
+  PUBLIC ROUTES (no token needed):
+    POST /api/register          → AuthController@register
+    POST /api/login             → AuthController@login
+    GET  /api/books             → BookController@index
+    GET  /api/books/{id}        → BookController@show
+    GET  /api/categories        → BookController@categories
+
+  AUTHENTICATED ROUTES (Bearer token required):
+    POST   /api/logout          → AuthController@logout
+    GET    /api/user            → AuthController@me
+    GET    /api/profile         → ProfileController@show
+    PUT    /api/profile         → ProfileController@update
+    PUT    /api/profile/password → ProfileController@changePassword
+    DELETE /api/profile         → ProfileController@destroy
+    GET    /api/my-books        → RecordController@myBooks
+    POST   /api/borrow/{book_id} → RecordController@borrow
+    POST   /api/return/{record_id} → RecordController@return
+
+  ADMIN-ONLY ROUTES (Bearer token + admin role):
+    POST   /api/books           → BookController@store
+    POST   /api/books/{id}      → BookController@update (multipart workaround)
+    PUT    /api/books/{id}      → BookController@update
+    DELETE /api/books/{id}      → BookController@destroy
+    GET    /api/admin/stats     → AdminController@stats
+    GET    /api/admin/users     → AdminController@users
+    PUT    /api/admin/users/{id}/status → AdminController@updateUserStatus
+
+  NOTE: Both POST and PUT /api/books/{id} map to update(). The POST variant
+  exists because browsers cannot send multipart/form-data (file uploads) with
+  the PUT method in all environments. The frontend sends POST with _method=PUT
+  in the form data (Laravel method spoofing).
+
+9.9  Database Seeder (database/seeders/DatabaseSeeder.php)
+────────────────────────────────────────────────────────────
+Uses firstOrCreate() which means seeding is idempotent — running it twice
+does not create duplicates.
+
+  Creates:
+    1 admin user: admin@library.com / Admin@1234
+    1 member user: member@library.com / Member@1234
+    5 categories: Action, Romance, Thriller, Horror, Documentary
+    10 books spread across all categories with real ISBNs:
+      - The Dark Knight Returns (Action)
+      - Die Hard: The Novel (Action)
+      - Pride and Prejudice (Romance)
+      - The Notebook (Romance)
+      - Gone Girl (Thriller)
+      - The Girl with the Dragon Tattoo (Thriller)
+      - It (Horror)
+      - The Haunting of Hill House (Horror)
+      - A Brief History of Time (Documentary)
+      - Sapiens (Documentary)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+10. FRONTEND — REACT APPLICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+10.1  Entry Points
+────────────────────
+  index.html
+    The single HTML file served by Nginx for every URL. Contains:
+    - Dialogflow Messenger script tag in <head> (loads the chatbot widget)
+    - <div id="root"> where React mounts
+    - <script type="module" src="/src/main.tsx"> (in dev) / built JS in prod
+
+  src/main.tsx
+    Calls ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    Imports index.css (global styles)
+    Imports 'react-toastify/dist/ReactToastify.css' (toast styles)
+    This is the absolute entry point — everything flows from here.
+
+10.2  App.tsx — Root Component & Routing
+──────────────────────────────────────────
+The root component that wraps everything. Responsibilities:
+
+  TypeScript declaration: Declares the 'df-messenger' custom element so
+  TypeScript doesn't error on an unknown JSX element.
+
+  AuthProvider wrapper: All child components can access auth state (user,
+  token, login, logout) via the useAuth() hook.
+
+  BrowserRouter: Enables URL-based navigation. Without this, React Router
+  hooks (useNavigate, useLocation) would not work.
+
+  Layout component: Renders <Navbar /> above every page, then <main> with
+  the current route's page component inside.
+
+  Route definitions:
+    /              → Home page
+    /login         → Login page
+    /register      → Register page
+    /books/:id     → Book detail page (the :id is a URL parameter)
+    /my-books      → Protected (must be logged in)
+    /profile       → Protected (must be logged in)
+    /admin         → Protected + Admin (redirects non-admins to /)
+    *              → Catch-all redirect to /
+
+  ProtectedRoute: Wrapper that checks isAuthenticated. If false, redirects
+  to /login using <Navigate>.
+
+  AdminRoute: Wrapper that checks both isAuthenticated and isAdmin. Redirects
+  unauthenticated users to /login, non-admins to /.
+
+  <df-messenger>: The Dialogflow chatbot element. Placed after all routes
+  so it floats over every page.
+
+  <ToastContainer>: Renders toast notifications. Any component can call
+  toast.success() or toast.error() and this component displays it.
+
+10.3  API Client (src/api.ts)
+───────────────────────────────
+Creates an Axios instance pre-configured with:
+  baseURL: 'http://localhost:8000/api'
+    (overridden to VITE_API_URL/api if the build arg was set)
+  headers: Content-Type: application/json, Accept: application/json
+
+  REQUEST INTERCEPTOR:
+    Before every request, reads auth_token from localStorage and adds:
+      Authorization: Bearer <token>
+    If no token is stored, the header is simply not added (public requests).
+
+  RESPONSE INTERCEPTOR:
+    On any 401 (Unauthorised) response:
+      - Clears auth_token and auth_user from localStorage
+      - Redirects to /login using window.location.href
+    This handles token expiry transparently — the user is sent to login
+    without needing any extra logic in page components.
+
+10.4  Auth Context (src/context/AuthContext.tsx)
+──────────────────────────────────────────────────
+React Context that provides authentication state to the entire app.
+Any component can call useAuth() to access these values.
+
+  STATE:
+    user    — The authenticated User object or null
+    token   — The Bearer token string or null
+    loading — True while the initial token verification is running
+
+  ON MOUNT (useEffect with []):
+    Reads auth_token from localStorage. If found, calls GET /api/user to
+    verify it's still valid. If the request succeeds, stores the user in state.
+    If it fails (401, token expired, DB wiped), clears localStorage and state.
+    Sets loading=false when done.
+    While loading=true, renders a spinner instead of the app to prevent
+    a flash of wrong content (e.g. briefly showing a protected page).
+
+  FUNCTIONS:
+    login(email, password)
+      Calls POST /api/login
+      Stores token in localStorage and in state
+      Stores user in localStorage and in state
+
+    register(name, email, password, password_confirmation)
+      Calls POST /api/register
+      Does not auto-login (user is redirected to /login after registration)
+
+    logout()
+      Calls POST /api/logout (deletes token server-side)
+      Clears localStorage and state
+      Catches errors silently (still clears local state if request fails)
+
+    setUser(user)
+      Updates user in both state and localStorage
+      Used by Profile page after updating profile info
+
+  COMPUTED VALUES:
+    isAdmin         — true if user?.type === 'admin'
+    isAuthenticated — true if both token and user are set
+
+10.5  Components
+──────────────────
+Components are reusable pieces of UI. These three are shared across pages.
+
+  10.5.1  Navbar (src/components/Navbar.tsx)
+    Appears at the top of every page inside the Layout wrapper.
+    Uses useAuth() to access isAuthenticated, isAdmin, user, logout.
+    Uses useNavigate() for programmatic navigation after logout.
+    Uses useLocation() to detect route changes and auto-close the mobile menu.
+
+    DESKTOP BEHAVIOUR (viewport > 768px):
+      Shows the logo on the left and navigation links on the right.
+      Links shown depend on auth state:
+        - Always: "Books" link
+        - Members: + "My Books" link
+        - Admins: + "Admin" link (instead of My Books)
+        - Authenticated: + Profile link with first name, Logout button
+        - Unauthenticated: Login button
+
+    MOBILE BEHAVIOUR (viewport ≤ 768px):
+      Desktop links are hidden (display: none).
+      A hamburger icon (FiMenu) appears instead.
+      Clicking it opens a slide-in drawer from the right side.
+      The drawer contains the same navigation links at larger touch target size.
+
+    THREE AUTO-CLOSE MECHANISMS:
+      1. Clicking any nav link (onClick={() => setOpen(false)} on each link)
+      2. Clicking outside the drawer (mousedown listener on document)
+      3. Route change (useEffect watching location.pathname)
+
+    BODY SCROLL LOCK: When drawer is open, document.body.style.overflow='hidden'
+    prevents the page behind from scrolling. Cleaned up on close.
+
+    BACKDROP: A semi-transparent overlay behind the drawer. Clicking it closes
+    the menu. Rendered as a separate div with z-index: 240 (below drawer at 250).
+
+  10.5.2  AddBookModal (src/components/AddBookModal.tsx)
+    A modal dialog for creating a new book. Only rendered by AdminPanel.
+
+    STATE:
+      categories  — Fetched from /api/categories on mount
+      form        — Object with title, author, isbn_no, description, category_id
+      image       — The selected File object (or null)
+      preview     — Object URL for the image preview (revoked when component unmounts)
+      errors      — Field-level validation errors from the server
+      loading     — True while the POST request is in flight
+
+    FORM SUBMISSION:
+      Constructs a FormData object (required for file uploads — regular JSON
+      cannot carry binary file data).
+      Appends all text fields and the image file if selected.
+      Sends POST /api/books with Content-Type: multipart/form-data.
+      On success: shows toast, calls onSaved() (parent refreshes book list).
+      On validation error: maps server errors to field-level display.
+
+    INLINE HELPER:
+      inp(key, label, type, placeholder) — Creates a form-group div with label,
+      input, and error message in one function call to avoid repetition.
+
+  10.5.3  EditBookModal (src/components/EditBookModal.tsx)
+    Identical structure to AddBookModal but pre-fills form with existing book data.
+
+    KEY DIFFERENCE — METHOD SPOOFING:
+      HTML forms cannot send PUT requests with file uploads.
+      The modal sends POST /api/books/{id} with _method=PUT in the FormData.
+      Laravel reads _method and routes it to the update() controller method.
+
+    IMAGE HANDLING:
+      Preview is initialised with book.image_url (shows current image).
+      If user selects a new file, preview updates to a local object URL.
+      If no new file is selected, the server keeps the existing image.
+
+    ON SAVE:
+      Calls onSaved() with no arguments (prop type: () => void).
+      The parent (AdminPanel or BookDetail) calls fetchBooks() or re-fetches
+      the book to refresh the display from the server.
+
+10.6  Pages
+─────────────
+Pages are full-screen components rendered by React Router based on the URL.
+
+  10.6.1  Home (src/pages/Home.tsx)
+    The landing page showing the book catalogue.
+
+    STATE: books, meta (pagination info), categories, search, catId, page, loading
+
+    ON MOUNT: Fetches all categories for the filter buttons.
+
+    fetchBooks() (useCallback):
+      Called whenever page, search, or catId changes.
+      Sends GET /api/books with ?page=, ?search=, ?category_id= as needed.
+      Updates books array and pagination metadata.
+
+    SEARCH:
+      Controlled input bound to 'search' state.
+      useEffect resets page to 1 whenever search changes (avoids empty pages).
+
+    CATEGORY FILTER:
+      Row of pill buttons above the grid. Clicking sets catId state.
+      The "All" button sets catId to null (no filter).
+      Active button gets the 'active' CSS class.
+
+    BOOK GRID:
+      Uses CSS grid (auto-fill, minmax) — adapts column count to viewport.
+      Each book shows cover image (or book emoji fallback), title, author,
+      category badge, and availability badge.
+      Clicking a card navigates to /books/{id}.
+
+    PAGINATION:
+      Shows numbered page buttons only if last_page > 1.
+      Previous/Next arrows disable at the first/last page.
+
+  10.6.2  Login (src/pages/Login.tsx)
+    Simple login form with email and password fields.
+    Calls login() from AuthContext on submit.
+    On success: shows toast, navigates to /
+    On error: displays server error message under the form.
+    If already authenticated: immediately redirects to / (prevents logged-in
+    users from seeing the login form).
+
+  10.6.3  Register (src/pages/Register.tsx)
+    Registration form with name, email, password, and confirm password.
+    Calls register() from AuthContext on submit.
+    On success: shows toast, navigates to /login (user must then log in).
+    Displays field-level validation errors from the server.
+
+  10.6.4  BookDetail (src/pages/BookDetail.tsx)
+    Full detail view for a single book.
+
+    LOADS: GET /api/books/{id} on mount (id from useParams())
+    Also fetches /api/my-books if authenticated member (to check active borrow count)
+
+    DISPLAYS:
+      - Cover image or large emoji fallback
+      - Title, author, ISBN, category, availability status
+      - Description
+      - "Borrowed by [name]" if book is currently out
+      - Borrow button (if member, book available, active borrows < 3)
+      - Edit/Delete buttons (if admin)
+
+    BORROW LOGIC:
+      canBorrow = isAuthenticated && !isAdmin && book.is_available && activeCount < 3
+      Sends POST /api/borrow/{id}
+      On success: updates book.is_available to false, increments activeCount
+
+    ADMIN ACTIONS:
+      Edit: opens EditBookModal pre-filled with current book data
+      Delete: shows confirmation modal → calls DELETE /api/books/{id} → navigates to /
+
+  10.6.5  MyBooks (src/pages/MyBooks.tsx)
+    Shows a member's borrowed books in two sections.
+
+    CURRENT BORROWS (cards):
+      Each card shows: thumbnail, title, author, borrowed date, due date,
+      overdue/on-time badge, Return button.
+      Return button calls POST /api/return/{record_id} then refreshes.
+      Maximum 3 books shown (enforced by server).
+
+    BORROWING HISTORY (table):
+      All returned books with columns: Book, Borrowed date, Due date, Returned date.
+
+    fmt() helper: Formats ISO date strings to "23 Mar 2026" format.
+
+  10.6.6  Profile (src/pages/Profile.tsx)
+    Three-section profile management page.
+
+    SECTION 1 — Account Info Banner:
+      Read-only display of: Member Since date, Status badge, Role badge.
+
+    SECTION 2 — Edit Profile form:
+      Name and email inputs pre-filled from useAuth().user
+      PUT /api/profile on submit → calls setUser(res.data.data) to update
+      the global auth context
+
+    SECTION 3 — Change Password form:
+      Current password, new password, confirm new password.
+      Client-side checks: passwords match, min length 8.
+      PUT /api/profile/password on submit.
+      Server checks the current password is correct before updating.
+
+    SECTION 4 — Danger Zone:
+      "Delete Account" button → opens confirmation modal.
+      DELETE /api/profile → logs out → navigates to /
+      Uses soft delete (account data kept for audit, just hidden).
+
+  10.6.7  AdminPanel (src/pages/AdminPanel.tsx)
+    Full admin dashboard with two tabs: Books and Users.
+
+    STATS SECTION (always visible):
+      Four stat cards showing: Total Books, Total Members, Currently Borrowed,
+      Overdue Books. Loaded from GET /api/admin/stats on mount.
+
+    BOOKS TAB:
+      Search bar filters books by title/author.
+      "Add Book" button opens AddBookModal.
+      Table with columns: #, Title, Author, ISBN, Category, Status, Actions.
+      Edit button (pencil icon) opens EditBookModal.
+      Delete button (trash icon) opens inline confirmation modal.
+      Pagination if books exceed 10 per page.
+
+    USERS TAB (loaded only when tab is clicked for performance):
+      Search bar filters by name or email.
+      Table with columns: #, Name, Email, Status, Joined, Action.
+      Suspend/Activate toggle button for each user.
+      Deleted accounts shown at reduced opacity with a "Deleted" badge.
+
+    onSaved for EditBookModal:
+      Calls setEditBook(null) to close modal and fetchBooks() to refresh the list.
+      Does NOT use optimistic updates to avoid stale category data from MSSQL
+      returning category_id as a string.
+
+10.7  Styling (src/index.css)
+───────────────────────────────
+Single global CSS file. No CSS modules or component-scoped styles.
+Uses CSS custom properties (variables) defined in :root for consistent theming.
+
+  DESIGN TOKENS (CSS variables):
+    --primary      #2563eb  — Blue; buttons, links, active states
+    --success      #16a34a  — Green; available badges, success states
+    --danger       #dc2626  — Red; error states, suspend/delete actions
+    --text         #1e293b  — Near-black; body text
+    --text-muted   #64748b  — Gray; secondary text, placeholders
+    --border       #e2e8f0  — Light gray; all borders and dividers
+    --bg           #f8fafc  — Off-white; page background
+    --card         #ffffff  — White; card and modal backgrounds
+
+  RESPONSIVE BREAKPOINTS:
+    No breakpoint (default): Desktop — full navbar, multi-column grids
+    ≤ 768px (tablet):  Hamburger menu, 2-column stats, stacked section headers
+    ≤ 480px (mobile):  2-column book grid, bottom-sheet modals, scrolling category
+                       filter row
+    ≤ 360px (tiny):    Further density reduction for very small screens
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+11. FEATURE WALKTHROUGHS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+11.1  Authentication Flow
+───────────────────────────
+  REGISTER:
+    1. User fills in name, email, password, confirm password
+    2. Frontend sends POST /api/register
+    3. Backend validates and creates user (status=active, type=member)
+    4. Frontend shows success toast and redirects to /login
+
+  LOGIN:
+    1. User enters email and password
+    2. Frontend sends POST /api/login
+    3. Backend checks credentials and creates a Sanctum token
+    4. Frontend stores token and user in localStorage
+    5. AuthContext updates — app re-renders with authenticated state
+    6. User is redirected to /
+
+  LOGOUT:
+    1. User clicks Logout in navbar
+    2. Frontend sends POST /api/logout (token is deleted from DB)
+    3. Frontend clears localStorage
+    4. AuthContext clears state — app re-renders as unauthenticated
+    5. User is redirected to /login
+
+  TOKEN VERIFICATION ON REFRESH:
+    When the browser is refreshed, React re-mounts and AuthContext runs its
+    useEffect. It finds the token in localStorage and calls GET /api/user.
+    If valid → user is restored to auth state (no need to log in again).
+    If invalid → localStorage is cleared, user sees the public view.
+
+11.2  Browsing & Searching Books
+───────────────────────────────────
+    1. Home page loads → GET /api/books?page=1
+    2. Category buttons at top → adds ?category_id= to the request
+    3. Search box → adds ?search= to the request (resets to page 1)
+    4. Combined: GET /api/books?page=1&search=gatsby&category_id=3
+    5. Clicking a book → navigates to /books/{id}
+
+11.3  Borrowing a Book
+────────────────────────
+    1. Member visits /books/{id} for an available book
+    2. "Borrow Book" button is shown (hidden if admin, if book unavailable,
+       or if member already has 3 books)
+    3. Member clicks Borrow → POST /api/borrow/{id}
+    4. Backend creates a Record with due_date = now + 14 days
+    5. Frontend updates UI: status changes to "Currently Borrowed"
+    6. Book now shows in MyBooks > Currently Borrowed
+
+11.4  Returning a Book
+────────────────────────
+    1. Member visits /my-books
+    2. Clicks "Return" next to an active borrow
+    3. POST /api/return/{record_id}
+    4. Backend sets returned_at = now
+    5. Page refreshes: book moves from "Currently Borrowed" to "Borrowing History"
+    6. The book's status returns to "Available" on the catalogue
+
+11.5  Admin — Adding a Book
+─────────────────────────────
+    1. Admin clicks "+ Add Book" in AdminPanel
+    2. AddBookModal opens
+    3. Admin fills in Title, Author, ISBN (10 or 13 digits), Category, optional
+       Description and Cover Image
+    4. POST /api/books with multipart/form-data
+    5. Backend validates ISBN format with regex, stores image in storage/books/
+    6. Modal closes, book list refreshes, stats update
+
+11.6  Admin — Editing a Book
+──────────────────────────────
+    1. Admin clicks pencil icon in AdminPanel (or on BookDetail page)
+    2. EditBookModal opens pre-filled with current data
+    3. Admin modifies fields
+    4. POST /api/books/{id} with _method=PUT (method spoofing for file uploads)
+    5. Backend validates only provided fields ('sometimes' validation rules)
+    6. Modal closes, list refreshes from server
+
+11.7  Admin — Deleting a Book
+───────────────────────────────
+    1. Admin clicks trash icon → confirmation modal appears
+    2. Admin confirms → DELETE /api/books/{id}
+    3. Backend checks book is not currently borrowed
+    4. If borrowed: returns 422 error, admin sees toast message
+    5. If available: book and its image are deleted, list refreshes
+
+11.8  Admin — Managing Users
+──────────────────────────────
+    1. Admin opens Users tab in AdminPanel
+    2. All members loaded from GET /api/admin/users
+    3. Admin can search by name or email
+    4. "Suspend" button → PUT /api/admin/users/{id}/status { status: 'suspended' }
+    5. Suspended users cannot log in (login checks status)
+    6. "Activate" button re-enables the account
+    7. Soft-deleted accounts shown at reduced opacity, cannot be modified
+
+11.9  Profile Management
+──────────────────────────
+    Update name/email: PUT /api/profile { name, email }
+    Change password:   PUT /api/profile/password { current_password, password,
+                       password_confirmation }
+    Delete account:    DELETE /api/profile → soft deletes, all tokens revoked,
+                       user is logged out and redirected to /
+
+11.10 Chatbot (Dialogflow)
+────────────────────────────
+    The Google Dialogflow Messenger widget loads from a CDN script in index.html.
+    It appears as a floating chat button on every page.
+    Clicking it opens a chat window connected to the Dialogflow agent
+    (agent-id: e0d86880-d50f-4e82-b7e5-b9dd5f7f9dc1).
+    The bot is pre-configured on Dialogflow's console — the frontend just embeds it.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+12. API REFERENCE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+All responses follow this envelope format:
+  { "success": true|false, "message": "...", "data": { ... } }
+
+  POST /api/register
+    Body: { name, email, password, password_confirmation }
+    Response 201: { success, data: User }
+    Response 422: { message, errors: { field: ["msg"] } }
+
+  POST /api/login
+    Body: { email, password }
+    Response 200: { success, data: { user: User, token: string } }
+    Response 422: { message, errors: { email: ["msg"] } }
+
+  POST /api/logout                        [Auth required]
+    Response 200: { success, message }
+
+  GET /api/user                           [Auth required]
+    Response 200: { success, data: User }
+
+  GET /api/books?page=1&search=x&category_id=3
+    Response 200: { success, data: PaginatedBooks }
+
+  GET /api/books/{id}
+    Response 200: { success, data: Book }
+    Response 404: { message: "No query results..." }
+
+  GET /api/categories
+    Response 200: { success, data: Category[] }
+
+  POST /api/books                         [Admin only, multipart/form-data]
+    Body: title, author, isbn_no, category_id, description?, image?
+    Response 201: { success, message, data: Book }
+
+  POST /api/books/{id}   (with _method=PUT) [Admin only, multipart/form-data]
+    Body: any subset of book fields + optional image
+    Response 200: { success, message, data: Book }
+
+  DELETE /api/books/{id}                  [Admin only]
+    Response 200: { success, message }
+    Response 422: { success: false, message: "Cannot delete borrowed book" }
+
+  GET /api/my-books                       [Auth required]
+    Response 200: { success, data: { current: Record[], history: Record[] } }
+
+  POST /api/borrow/{book_id}              [Auth required]
+    Response 201: { success, message, data: Record }
+    Response 422: { success: false, message: "..." }
+
+  POST /api/return/{record_id}            [Auth required]
+    Response 200: { success, message, data: Record }
+
+  GET /api/admin/stats                    [Admin only]
+    Response 200: { success, data: { total_books, total_users,
+                   borrowed_books, overdue_books } }
+
+  GET /api/admin/users?page=1&search=x    [Admin only]
+    Response 200: { success, data: PaginatedUsers }
+
+  PUT /api/admin/users/{id}/status        [Admin only]
+    Body: { status: "active"|"suspended" }
+    Response 200: { success, message, data: User }
+
+  GET /api/profile                        [Auth required]
+    Response 200: { success, data: User }
+
+  PUT /api/profile                        [Auth required]
+    Body: { name?, email? }
+    Response 200: { success, message, data: User }
+
+  PUT /api/profile/password               [Auth required]
+    Body: { current_password, password, password_confirmation }
+    Response 200: { success, message }
+
+  DELETE /api/profile                     [Auth required]
+    Response 200: { success, message }
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+13. DATABASE SCHEMA
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  users
+  ┌───────────────────┬──────────────┬──────────────────────────────────────┐
+  │ Column            │ Type         │ Notes                                │
+  ├───────────────────┼──────────────┼──────────────────────────────────────┤
+  │ id                │ bigint PK    │ Auto-increment                       │
+  │ name              │ nvarchar     │                                      │
+  │ email             │ nvarchar     │ Unique index                         │
+  │ password          │ nvarchar     │ Bcrypt hash                          │
+  │ type              │ nvarchar(20) │ 'admin' or 'member'                  │
+  │ status            │ nvarchar(20) │ 'active' or 'suspended'              │
+  │ email_verified_at │ datetime     │ Nullable                             │
+  │ remember_token    │ nvarchar     │ Nullable                             │
+  │ deleted_at        │ datetime     │ Nullable; soft delete                │
+  │ created_at        │ datetime     │ Auto-set                             │
+  │ updated_at        │ datetime     │ Auto-updated                         │
+  └───────────────────┴──────────────┴──────────────────────────────────────┘
+
+  categories
+  ┌────────────┬──────────┬────────────────────────────────────────────────┐
+  │ id         │ bigint PK│                                                │
+  │ name       │ nvarchar │ Unique                                         │
+  │ created_at │ datetime │                                                │
+  │ updated_at │ datetime │                                                │
+  └────────────┴──────────┴────────────────────────────────────────────────┘
+
+  books
+  ┌─────────────┬──────────────┬─────────────────────────────────────────┐
+  │ id          │ bigint PK    │                                         │
+  │ title       │ nvarchar     │                                         │
+  │ author      │ nvarchar     │                                         │
+  │ description │ nvarchar(2k) │ Nullable                                │
+  │ isbn_no     │ nvarchar(20) │ Unique; validated as 10 or 13 digits    │
+  │ image_path  │ nvarchar     │ Nullable; relative path in storage      │
+  │ category_id │ bigint FK    │ → categories.id  ON DELETE NO ACTION    │
+  │ created_at  │ datetime     │                                         │
+  │ updated_at  │ datetime     │                                         │
+  └─────────────┴──────────────┴─────────────────────────────────────────┘
+
+  records
+  ┌─────────────┬───────────┬─────────────────────────────────────────────┐
+  │ id          │ bigint PK │                                             │
+  │ user_id     │ bigint FK │ → users.id  ON DELETE CASCADE              │
+  │ book_id     │ bigint FK │ → books.id  ON DELETE CASCADE              │
+  │ borrowed_at │ datetime  │ Not nullable                                │
+  │ due_date    │ datetime  │ Not nullable; always borrowed_at + 14 days │
+  │ returned_at │ datetime  │ Nullable; NULL = still borrowed            │
+  │ created_at  │ datetime  │                                             │
+  │ updated_at  │ datetime  │                                             │
+  └─────────────┴───────────┴─────────────────────────────────────────────┘
+
+  personal_access_tokens  (Sanctum — managed automatically)
+  ┌────────────────┬──────────┬──────────────────────────────────────────┐
+  │ id             │ bigint PK│                                          │
+  │ tokenable_type │ nvarchar │ e.g. 'App\Models\User'                  │
+  │ tokenable_id   │ bigint   │ The user's id                           │
+  │ name           │ nvarchar │ e.g. 'auth_token'                       │
+  │ token          │ nvarchar │ SHA-256 hash of the plain token         │
+  │ abilities      │ text     │ JSON array of permissions               │
+  │ last_used_at   │ datetime │ Nullable                                │
+  │ expires_at     │ datetime │ Nullable (null = never expires)         │
+  │ created_at     │ datetime │                                          │
+  │ updated_at     │ datetime │                                          │
+  └────────────────┴──────────┴──────────────────────────────────────────┘
+
+  RELATIONSHIPS:
+    users          ──< records        (one user, many borrow records)
+    books          ──< records        (one book, many borrow records)
+    categories     ──< books          (one category, many books)
+    users          ──< personal_access_tokens  (one user, many tokens)
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+14. COMMON ERRORS & TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PROBLEM: CORS error in browser console
+  CAUSE  : Apache CORS headers not being sent
+  FIX    : Ensure mod_headers is enabled in Dockerfile (a2enmod headers)
+           and that the VirtualHost config has the Header directives.
+           Run: docker compose up --build --no-deps server
+
+  PROBLEM: "Login failed. Please try again." with no server error
+  CAUSE  : Token stored from a previous run (different DB) is being sent
+           on the initial /api/user verification and failing silently
+  FIX    : Open browser DevTools → Application → Local Storage →
+           Clear all entries under localhost:5173, then refresh.
+
+  PROBLEM: Permission denied error in server logs for storage/logs/laravel.log
+  CAUSE  : The ./server/storage volume mount overwrites Docker build-time chown
+  FIX    : docker-entrypoint.sh now runs chown at startup. Rebuild:
+           docker compose up --build --no-deps server
+
+  PROBLEM: SQL Server container takes very long to become healthy
+  CAUSE  : First-time initialisation of MSSQL databases takes ~60 seconds
+  FIX    : Wait longer. The server container will keep retrying. Do not
+           stop and restart — let it complete. Subsequent starts are faster
+           because the data volume already exists.
+
+  PROBLEM: "Container exited with code 1" for library_server
+  CAUSE  : Usually a PHP syntax error or missing env variable
+  FIX    : Run: docker compose logs server
+           Look for the first error line (not the permission denied cascade).
+
+  PROBLEM: Books show but images don't display
+  CAUSE  : Storage symlink not created, or storage volume permissions wrong
+  FIX    : Run inside the container:
+           docker compose exec server php artisan storage:link
+           docker compose exec server chown -R www-data:www-data storage
+
+  PROBLEM: npm run build fails with TypeScript error
+  CAUSE  : Usually a prop type mismatch after modifying components
+  FIX    : Read the error — it includes the file and line number.
+           Common cause: passing wrong argument type to a callback prop.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. RESETTING THE PROJECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  FULL RESET (wipes all data, re-seeds):
+    docker compose down -v
+    docker compose up --build
+
+  REBUILD ONLY THE SERVER (after backend code changes):
+    docker compose up --build --no-deps server
+
+  REBUILD ONLY THE CLIENT (after frontend code changes):
+    docker compose up --build --no-deps client
+
+  REBUILD BOTH APP CONTAINERS (keep DB data):
+    docker compose up --build --no-deps server client
+
+  VIEW LIVE LOGS:
+    docker compose logs -f
+
+  OPEN A SHELL INSIDE THE SERVER CONTAINER:
+    docker compose exec server bash
+
+  RUN ARTISAN COMMANDS:
+    docker compose exec server php artisan migrate:status
+    docker compose exec server php artisan db:seed
+    docker compose exec server php artisan tinker
+
+================================================================================
+  END OF DOCUMENTATION
+================================================================================
